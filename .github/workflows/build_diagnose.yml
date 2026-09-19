@@ -1,0 +1,78 @@
+name: E-Client 1.21.80.3 Build Diagnostics
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: temurin
+          cache: gradle
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          cmdline-tools-version: '12266719'
+          packages: ''
+
+      - name: Install required SDK packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager --sdk_root="${ANDROID_SDK_ROOT}" --install \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0" \
+            "ndk;28.2.13676358" \
+            "cmake;3.22.1"
+          set +o pipefail
+          yes | sdkmanager --sdk_root="${ANDROID_SDK_ROOT}" --licenses >/dev/null || true
+          set -o pipefail
+
+      - name: Verify protocol 800
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash ./scripts/bootstrap_protocol.sh 3.0
+          test -f relay/Protocol/VERSIONS.md
+          grep -q 'Bedrock_v800' relay/Protocol/VERSIONS.md
+          test -f relay/Protocol/bedrock-codec/src/main/java/org/cloudburstmc/protocol/bedrock/codec/v800/Bedrock_v800.java
+
+      - name: Verify standalone runtime tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f app/src/main/kotlin/com/rubidiumclient/core/runtime/NativeRuntimeBridge.kt
+          test -f app/src/main/kotlin/com/rubidiumclient/core/runtime/NativeRuntimeProfile.kt
+          test -f app/src/main/kotlin/com/rubidiumclient/core/runtime/NativeGameState.kt
+          test -f native/runtime/CMakeLists.txt
+          test -f native/runtime/src/main.cpp
+          test ! -e native/levi-module
+          test ! -e app/src/main/assets/levi
+          ! grep -RIl 'LeviLaunchroid\|PL_REGISTER_MOD\|\.levipack' app/src/main native docs .github/workflows scripts --exclude='*.nbt' --exclude='runtime_item_states*' || true
+
+      - name: Build Debug APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleDebug --stacktrace
+        env:
+          GRADLE_OPTS: '-Dorg.gradle.daemon=false -Xmx4g'
+
+      - name: Upload Debug APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: EClient-1.21.80.3-debug-${{ github.sha }}
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error

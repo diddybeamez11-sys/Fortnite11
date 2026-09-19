@@ -1,0 +1,11 @@
+{
+  "minecraft_version": "1.21.80.3",
+  "protocol_version": 800,
+  "abi": "arm64-v8a",
+  "runtime_name": "E-Client Standalone Native Runtime",
+  "native_library": "libminecraftpe.so",
+  "native_build_id": "665d33595ddec90fe7347a45cd4da65e6f0871aa",
+  "native_sha256": "84cc649545f95420212038dd483896d5d53507e25a309e68bd038b0256a976ae",
+  "native_library_size": 247512600,
+  "native_symbols_stripped": true
+}
